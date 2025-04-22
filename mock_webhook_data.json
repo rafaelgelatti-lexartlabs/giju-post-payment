@@ -1,0 +1,8 @@
+{
+    "card_number": "123456789012",
+    "cpf": "12345678901",
+    "operadora": "PERSONALCARD",
+    "ValorTransacao": "10,00",
+    "condicao": 1,
+    "EmailCredenciado": "admin_receberconfirmação@gmail.com"
+}
