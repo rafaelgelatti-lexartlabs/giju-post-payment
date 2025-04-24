@@ -73,6 +73,8 @@ axios.interceptors.response.use((response) => {
 
 // 1- Get Login | get __RequestVerificationToken from res
 const getLogin = async () => {
+    console.log('1 - getLogin');
+    
     try {
         const config = {
             method: 'get',
@@ -108,6 +110,7 @@ const getLogin = async () => {
 
 // 2- Login | __AuthorizationToken
 const postLogin = async (__RequestVerificationToken) => {
+    console.log('2 - postLogin');
     if (!__RequestVerificationToken) return {
         value: '',
         error: true,
@@ -178,6 +181,8 @@ const postLogin = async (__RequestVerificationToken) => {
 
 // 3- Transaction | __RequestVerificationToken
 const transaction = async (__AuthorizationToken) => {
+    console.log('3 - transaction');
+    
     if (!__AuthorizationToken) return {
         value: '',
         error: true,
@@ -245,6 +250,8 @@ const transaction = async (__AuthorizationToken) => {
 
 // 4- GeneraLink | https://www1.tln.com.br
 const generateLink = async (props) => {
+    console.log('4 - generateLink');
+    
     const data = qs.stringify({
         __AuthorizationToken: props.__AuthorizationToken,
         operadora: props.operadora,
@@ -288,10 +295,12 @@ const generateLink = async (props) => {
         const res = await axios.request(config);
         if (res && res.status == 200 && res.data && typeof res.data === 'string') {
             const $ = cheerio.load(res.data);
+            // console.log(res.data);
+            
             return {
                 value: $('p:contains("Link para Pagamento:") + p a').attr('href'),
                 error: false,
-                message: ''
+                message: 'success'
             };
         }
         return {
@@ -312,6 +321,8 @@ const generateLink = async (props) => {
 
 // 5- payment | https://www1.tln.com.br/us/bla3bla4
 const payment = async (link) => {
+    console.log('5 - payment');
+    
     if (!link) return {
         value: '',
         error: true,
@@ -373,6 +384,8 @@ const payment = async (link) => {
 
 // 6- tipoDeCartão | https://www1.tln.com.br/apps/ecommerce/transacaolink/obtemtipocartao
 const tipoDeCartao = async ({ operadora, numeroCartao, referer }) => {
+    console.log('6 - tipoDeCartao');
+    
     if (!operadora || !numeroCartao) return {
         value: '',
         error: true,
@@ -433,6 +446,8 @@ const tipoDeCartao = async ({ operadora, numeroCartao, referer }) => {
 
 // 7- sendPayment | https://www1.tln.com.br/apps/ecommerce/transacaolink/confirmatransacao
 const sendPayment = async (props) => {
+    console.log('7 - sendPayment');
+    
     const data = qs.stringify({
         chaveSessao: props.chaveSessao,
         idSessaoPagamento: props.idSessaoPagamento,
@@ -490,7 +505,7 @@ const sendPayment = async (props) => {
             return {
                 value: true,
                 error: false,
-                message: ''
+                message: 'success'
             };
         }
         return {
@@ -588,7 +603,7 @@ const runAll = async (props) => {
     if (res7.value && !res7.error) {
         return {
             message: "success",
-            error: ''
+            error: false
         }
         // indo7 = res7.value
     } else {
@@ -612,11 +627,7 @@ const runAll = async (props) => {
 app.post('/giju-automation', express.json(), async (req, res) => {
     const {
         card_number,
-        cpfCnpj,
-        operadora,
         ValorTransacao,
-        condicao,
-        EmailCredenciado,
         card_password
     } = req.body;
     // const {
@@ -629,13 +640,18 @@ app.post('/giju-automation', express.json(), async (req, res) => {
     //     card_password
     // } = mockedData;
 
-    if (!card_number || !cpfCnpj || !operadora || !ValorTransacao || !condicao || !EmailCredenciado || !card_password) {
+    if (!card_number || !ValorTransacao || !card_password) {
         res.send({
             error: true,
             status: 400,
             message: "Missing params /giju-automation"
         })
     }
+
+    const cpfCnpj = process.env.CPF;
+    const operadora = process.env.OPERADORA;
+    const condicao = Number(process.env.CONDICAO);
+    const EmailCredenciado = process.env.EMAIL;
 
     const runAllRes = await runAll({
         card_number,
@@ -646,11 +662,12 @@ app.post('/giju-automation', express.json(), async (req, res) => {
         EmailCredenciado,
         card_password
     })
+
     if (runAllRes?.error) {
-        return res.status(runAllRes?.status || 400).send({...runAllRes, success: false})
+        return res.status(runAllRes?.status || 400).send({ ...runAllRes, success: false })
     }
 
-    res.send(runAllRes)
+    return res.send(runAllRes)
 })
 
 app.get('/', async (req, res) => {
