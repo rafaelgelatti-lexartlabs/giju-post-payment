@@ -11,39 +11,64 @@ app.use(bodyParser.urlencoded({ extended: true }))
 const port = process.env.PORT
 const { CookieJar } = require('tough-cookie');
 
+var CryptoJS = require("crypto-js");
+
+function Aes128(chaveSessao) {
+    const config = {
+        iv: CryptoJS.enc.Utf8.parse(chaveSessao.substring(16, 32)),
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7
+    };
+    const chave = CryptoJS.enc.Utf8.parse(chaveSessao.substring(0, 16))
+
+    return {
+        chave: chave,
+        config: config
+    }
+}
+
+function Encript(n, chaveSessao) {
+    const aes = Aes128(chaveSessao)
+    const config = aes.config
+    const chave = aes.chave
+
+    return CryptoJS.AES.encrypt(n, chave, config).toString()
+
+}
+
 const cookieJar = new CookieJar();
 cookieJar.setCookieSync(
     `${process.env.COOKIE_REQ_2}`,
     'https://www1.tln.com.br'
-  );
+);
 
 axios.interceptors.request.use((config) => {
-  const cookies = cookieJar.getCookieStringSync('https://www1.tln.com.br');
-  
-  if (cookies) {
-    config.headers.Cookie = cookies;
-  }
-  config.withCredentials = true;
-  
-  return config;
+    const cookies = cookieJar.getCookieStringSync('https://www1.tln.com.br');
+
+    if (cookies) {
+        config.headers.Cookie = cookies;
+    }
+    config.withCredentials = true;
+
+    return config;
 }, error => {
     return Promise.reject(error);
 });
 
 axios.interceptors.response.use((response) => {
-  const setCookieHeaders = response.headers['set-cookie'];
-  
-  if (setCookieHeaders) {
-    setCookieHeaders.forEach((cookieStr) => {
-      cookieJar.setCookieSync(
-        cookieStr,
-        response.config.url,
-        { ignoreError: true }
-      );
-    });
-  }
-  
-  return response;
+    const setCookieHeaders = response.headers['set-cookie'];
+
+    if (setCookieHeaders) {
+        setCookieHeaders.forEach((cookieStr) => {
+            cookieJar.setCookieSync(
+                cookieStr,
+                response.config.url,
+                { ignoreError: true }
+            );
+        });
+    }
+
+    return response;
 });
 
 // 1- Get Login | get __RequestVerificationToken from res
@@ -285,14 +310,215 @@ const generateLink = async (props) => {
     }
 }
 
+// 5- payment | https://www1.tln.com.br/us/bla3bla4
+const payment = async (link) => {
+    if (!link) return {
+        value: '',
+        error: true,
+        message: 'error: no link payment'
+    }
+
+    try {
+        const config = {
+            method: 'get',
+            maxBodyLength: Infinity,
+            url: link,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'accept-language': 'es-419,es;q=0.5',
+                'content-type': 'application/x-www-form-urlencoded',
+                'origin': 'https://www1.tln.com.br',
+                'priority': 'u=0, i',
+                'referer': 'https://www1.tln.com.br/apps/ecommerce/transacaolink/geralink',
+                'sec-ch-ua': '"Brave";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"macOS"',
+                'sec-fetch-dest': 'document',
+                'sec-fetch-mode': 'navigate',
+                'sec-fetch-site': 'same-origin',
+                'sec-gpc': '1',
+                'upgrade-insecure-requests': '1'
+            },
+        };
+
+        const res = await axios.request(config);
+        if (res && res.status == 200 && res.data && typeof res.data === 'string') {
+            const $ = cheerio.load(res.data);
+
+            return {
+                value: {
+                    s_chaveSessao: $('[id="s_chaveSessao"]')?.val(),
+                    s_idSessaoPagamento: $('[id="s_idSessaoPagamento"]')?.val(),
+                    token: $('[name="token"]')?.val(),
+                },
+                error: false,
+                message: ''
+            };
+        }
+        return {
+            value: '',
+            error: true,
+            message: 'error: no res on payment'
+        }
+    } catch (e) {
+        console.log(e, 'catch generateLink')
+        return {
+            status: e.status,
+            value: '',
+            error: true,
+            message: 'error: catch payment'
+        }
+    }
+}
+
+// 6- tipoDeCartão | https://www1.tln.com.br/apps/ecommerce/transacaolink/obtemtipocartao
+const tipoDeCartao = async ({ operadora, numeroCartao, referer }) => {
+    if (!operadora || !numeroCartao) return {
+        value: '',
+        error: true,
+        message: 'error: no operadora or numeroCartao tipoDeCartao'
+    }
+
+    try {
+
+        const data = { operadora: operadora, numeroCartao: numeroCartao };
+
+        const config = {
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: 'https://www1.tln.com.br/apps/ecommerce/transacaolink/obtemtipocartao',
+            headers: {
+                'Content-Type': 'application/json',
+                'accept-language': 'es-419,es;q=0.7',
+                'content-type': 'application/json; charset=UTF-8',
+                'origin': 'https://www1.tln.com.br',
+                'priority': 'u=1, i',
+                'referer': referer,
+                'sec-ch-ua': '"Brave";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"macOS"',
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-origin',
+                'sec-gpc': '1',
+                'x-requested-with': 'XMLHttpRequest'
+            },
+            data: data
+        };
+
+        const res = await axios.request(config);
+        if (res && res.status == 200 && res.data) {
+
+            return {
+                value: res.data[0].tipoCartao,
+                error: false,
+                message: ''
+            };
+        }
+        return {
+            value: '',
+            error: true,
+            message: 'error: no res on tipoDeCartao'
+        }
+    } catch (e) {
+        console.log(e, 'catch tipoDeCartao')
+        return {
+            status: e.status,
+            value: '',
+            error: true,
+            message: 'error: catch tipoDeCartao'
+        }
+    }
+}
+
+// 7- sendPayment | https://www1.tln.com.br/apps/ecommerce/transacaolink/confirmatransacao
+const sendPayment = async (props) => {
+    const data = qs.stringify({
+        chaveSessao: props.chaveSessao,
+        idSessaoPagamento: props.idSessaoPagamento,
+        cpfCnpj: props.cpfCnpj,
+        operadora: props.operadora,
+        token: props.token,
+        cartao: Encript(props.cartao, props.chaveSessao),
+        senhaCartao: Encript(props.senhaCartao, props.chaveSessao),
+        tipoCartao: props.tipoCartao,
+        __RequestVerificationToken: props.__RequestVerificationToken
+    });
+
+    if (!data) return {
+        value: '',
+        error: true,
+        message: 'error: no data sendPayment'
+    }
+
+    try {
+        const config = {
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: 'https://www1.tln.com.br/apps/ecommerce/transacaolink/confirmatransacao',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'accept-language': 'pt,es;q=0.9,en-US;q=0.8,en;q=0.7',
+                'content-type': 'application/x-www-form-urlencoded',
+                'origin': 'https://www1.tln.com.br',
+                'pragma': 'no-cache',
+                'priority': 'u=0, i',
+                'referer': 'https://www1.tln.com.br/apps/ecommerce/transacaolink/obtemtipocartao',
+                'sec-ch-ua': '"Google Chrome";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"macOS"',
+                'sec-fetch-dest': 'document',
+                'sec-fetch-mode': 'navigate',
+                'sec-fetch-site': 'same-origin',
+                'sec-fetch-user': '?1',
+                'upgrade-insecure-requests': '1'
+            },
+            data: data
+        };
+
+        const res = await axios.request(config);
+        if (
+            res
+            &&
+            res.status == 200
+            && res.data
+            && typeof res.data === 'string'
+            && res.data.includes('Transação autorizada através do uso de senha pessoal')
+            && res.data.includes('Transação confirmada!')
+        ) {
+
+            return {
+                value: true,
+                error: false,
+                message: ''
+            };
+        }
+        return {
+            value: '',
+            error: true,
+            message: 'error: no res on sendPayment'
+        }
+    } catch (e) {
+        console.log(e, 'catch sendPayment')
+        return {
+            status: e.status,
+            value: '',
+            error: true,
+            message: 'error: catch sendPayment'
+        }
+    }
+}
+
 const runAll = async (props) => {
     let __RequestVerificationToken
-    // let __RequestVerificationToken = 'CfDJ8LuI1TqpFTROlZGE5b-881ONAmL6U5A1EjMh3Z1N-0-_zcAQNrDlIpNPe2QL2A6PzDJrV9XaQjka6943Z0JJ6WyxzoNbXPuMjpwqkDQYFojUfG7gPmNBq8pA5pX_9oSZIwPT5yXfyr5x9SsIQGWUMLc'
     let __AuthorizationToken
-    // let __AuthorizationToken = 'OmQd57+n3dr/JZH6nDZbX3/f5e5INil9oPJKpczbLYD2GLvZjZC49rYbZH2BasODxy1ZmB4zkzHG83lVHdtiUFXjkJq1B7fv3NOidsgqGUt0eHUfT8Rt0CIHib4UCZCfY/4w1DZJa4sMIvgHHCTRGhpmpyZM4LczIb5+utbbTA6F+RwUt6gcZb7l65KN/BxKi89M8ED7Zja5VFmflHr358/U1B5esc8xFudB/up58DmGCrYrYn5fW0of4JvMdE4QZIng9/HBBtXQzwPBXsld/LaL/fW1rgDjldEIa07Mc1RIGDwF2yCmPumm7a75wlxw2Uey2AEXikqMcCZ7Qz9nQdLF8oBjss+nb5lhEd9aVWqCdJMA8PBC3kRVJScMWh0nuos/UnjqlKggHiAinkRXaHenk7uhubAtRG4DpVe4W0P5dCKzjgv1BMShyf9UTg0p2dX+9xFSdy4nORmkCncojYqtPtud+S50AJc2OK5S4J1Sixn01udTi6UHD5u0FjlvJzM/rxBex4o508tDuvvtvSeljJRgtelm7cEJa3SWMzBRNq4tR0cm9tNLQaDgjs3eEtsTCTiM2trSoqapOzp+ZN4aj2b1NC0cUqTIEg0Yw5IRqsvP5Ad4+IO07tvwz2OjzsR3loa+klNU58cpVke4N+h7vouTENDRhR8R6LGoQY/vh5jDqflZ3mPzftlxPc7SfEicy2eNq7gOy2QHpPX1ZzRZ7VmJ8kNOC5PQGRpG/WaIARVPzRFzCEDZNwXujwRKkKxyHkIo4ayWk+i4JINUC9ZJgtZPUEgW93OzavRBdUa9G1Xx7YouetITLPum3N5fq3IvgXIgrq/pACciMzVWhfVdFMOWGSWA7UVuHdLpSLHUMqHRwr2N7Fjg3PEmZhzCaK2GiNTr2Nx8WoNz1mFd3PZCVsgg2+cpfzUVbAqic5FxuWqQibwT9u3Z8w0WrRWDe2+uHD8aWOwU0iTRPVt20vY8xoe14/Jogkwh4378d9zwMwIw8kR6PzKcK05CnD9iYNxTsNPbMP1a4t1lbdYd5xz6h0028lbk9vPZOGM3RME='
     let __RequestVerificationToken2
-    // let __RequestVerificationToken2 = 'CfDJ8LuI1TqpFTROlZGE5b-881MQp1FQpNZWXsNErWGgN3jvLX_vO5s0jUTXHxMh_wHnilK7pDYTxwDRgc2ZDbL4t_br3QVMtGweO3hUzG1Sv8MlS_XXcjdj7-uhcxRgnavOmuUBtga5Shl_zEiiU6P3kQXsCu0Frq63WkHpDQiVH2cV88gfBqKye8EkdJf9L1ASUg'
     let link
+    let s_chaveSessao
+    let s_idSessaoPagamento
+    let token
+    let tipoCartao
+    let indo7
 
     // 1
     const res1 = await getLogin()
@@ -330,13 +556,58 @@ const runAll = async (props) => {
         return res4
     }
 
-    return {
-        message: "success",
-        __AuthorizationToken,
-        __RequestVerificationToken,
-        __RequestVerificationToken2,
-        link
+    // 5
+    const res5 = await payment(link)
+    if (res5.value && !res5.error) {
+        s_chaveSessao = res5.value.s_chaveSessao
+        s_idSessaoPagamento = res5.value.s_idSessaoPagamento
+        token = res5.value.token
+    } else {
+        return res5
     }
+
+    // 6
+    const res6 = await tipoDeCartao({ operadora: props.operadora, numeroCartao: props.card_number, referer: link })
+    if (!res6.error) {
+        tipoCartao = res6.value
+    } else {
+        return res6
+    }
+
+    // 7
+    const res7 = await sendPayment({
+        chaveSessao: s_chaveSessao,
+        idSessaoPagamento: s_idSessaoPagamento,
+        cpfCnpj: props.cpf,
+        operadora: props.operadora,
+        token: token,
+        cartao: props.card_number,
+        senhaCartao: props.card_password,
+        tipoCartao,
+        __RequestVerificationToken: __RequestVerificationToken2
+    })
+    if (res7.value && !res7.error) {
+        return {
+            message: "success",
+            error: ''
+        }
+        // indo7 = res7.value
+    } else {
+        return res7
+    }
+
+    // return {
+    //     message: "success",
+    //     __AuthorizationToken,
+    //     __RequestVerificationToken,
+    //     __RequestVerificationToken2,
+    //     link,
+    //     s_chaveSessao,
+    //     s_idSessaoPagamento,
+    //     token,
+    //     tipoCartao,
+    //     indo7
+    // }
 }
 
 app.post('/giju-automation', async (req, res) => {
@@ -354,10 +625,11 @@ app.post('/giju-automation', async (req, res) => {
         operadora,
         ValorTransacao,
         condicao,
-        EmailCredenciado
+        EmailCredenciado,
+        card_password
     } = mockedData;
 
-    if (!card_number || !cpf || !operadora || !ValorTransacao || !condicao || !EmailCredenciado) {
+    if (!card_number || !cpf || !operadora || !ValorTransacao || !condicao || !EmailCredenciado || !card_password) {
         res.send({
             error: true,
             status: 400,
@@ -371,8 +643,12 @@ app.post('/giju-automation', async (req, res) => {
         operadora,
         ValorTransacao,
         condicao,
-        EmailCredenciado
+        EmailCredenciado,
+        card_password
     })
+    if (runAllRes?.error) {
+        return res.status(runAllRes?.status || 400).send({...runAllRes, success: false})
+    }
 
     res.send(runAllRes)
 })
