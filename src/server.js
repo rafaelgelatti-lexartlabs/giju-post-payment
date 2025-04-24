@@ -518,7 +518,6 @@ const runAll = async (props) => {
     let s_idSessaoPagamento
     let token
     let tipoCartao
-    let indo7
 
     // 1
     const res1 = await getLogin()
@@ -578,7 +577,7 @@ const runAll = async (props) => {
     const res7 = await sendPayment({
         chaveSessao: s_chaveSessao,
         idSessaoPagamento: s_idSessaoPagamento,
-        cpfCnpj: props.cpf,
+        cpfCnpj: props.cpfCnpj,
         operadora: props.operadora,
         token: token,
         cartao: props.card_number,
@@ -621,7 +620,7 @@ app.post('/giju-automation', async (req, res) => {
     // } = req.body;
     const {
         card_number,
-        cpf,
+        cpfCnpj,
         operadora,
         ValorTransacao,
         condicao,
@@ -629,7 +628,7 @@ app.post('/giju-automation', async (req, res) => {
         card_password
     } = mockedData;
 
-    if (!card_number || !cpf || !operadora || !ValorTransacao || !condicao || !EmailCredenciado || !card_password) {
+    if (!card_number || !cpfCnpj || !operadora || !ValorTransacao || !condicao || !EmailCredenciado || !card_password) {
         res.send({
             error: true,
             status: 400,
@@ -639,7 +638,7 @@ app.post('/giju-automation', async (req, res) => {
 
     const runAllRes = await runAll({
         card_number,
-        cpf,
+        cpfCnpj,
         operadora,
         ValorTransacao,
         condicao,
