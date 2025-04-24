@@ -609,15 +609,7 @@ const runAll = async (props) => {
     // }
 }
 
-app.post('/giju-automation', async (req, res) => {
-    // const {
-    //    card_number,
-    //    cpf,
-    //    operadora,
-    //    ValorTransacao,
-    //    condicao,
-    //    EmailCredenciado
-    // } = req.body;
+app.post('/giju-automation', express.json(), async (req, res) => {
     const {
         card_number,
         cpfCnpj,
@@ -626,7 +618,16 @@ app.post('/giju-automation', async (req, res) => {
         condicao,
         EmailCredenciado,
         card_password
-    } = mockedData;
+    } = req.body;
+    // const {
+    //     card_number,
+    //     cpfCnpj,
+    //     operadora,
+    //     ValorTransacao,
+    //     condicao,
+    //     EmailCredenciado,
+    //     card_password
+    // } = mockedData;
 
     if (!card_number || !cpfCnpj || !operadora || !ValorTransacao || !condicao || !EmailCredenciado || !card_password) {
         res.send({
