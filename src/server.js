@@ -628,7 +628,7 @@ app.post('/giju-automation', express.json(), async (req, res) => {
     const {
         card_number,
         ValorTransacao,
-        card_password
+        cpf
     } = req.body;
     // const {
     //     card_number,
@@ -637,10 +637,10 @@ app.post('/giju-automation', express.json(), async (req, res) => {
     //     ValorTransacao,
     //     condicao,
     //     EmailCredenciado,
-    //     card_password
+    //     cpf
     // } = mockedData;
 
-    if (!card_number || !ValorTransacao || !card_password) {
+    if (!card_number || !ValorTransacao || !cpf) {
         res.send({
             error: true,
             status: 400,
@@ -660,7 +660,7 @@ app.post('/giju-automation', express.json(), async (req, res) => {
         ValorTransacao,
         condicao,
         EmailCredenciado,
-        card_password
+        card_password: String(cpf).substring(0, 4)
     })
 
     if (runAllRes?.error) {
