@@ -1,6 +1,8 @@
 require('dotenv').config()
 const mockedData = require('../mock_webhook_data.json')
 const axios = require('axios')
+const logger = require('morgan');
+const chalk = require("chalk");
 const cheerio = require('cheerio')
 const express = require('express')
 const bodyParser = require('body-parser')
@@ -10,6 +12,8 @@ const app = express()
 app.use(bodyParser.urlencoded({ extended: true }))
 const port = process.env.PORT
 const { CookieJar } = require('tough-cookie');
+
+chalk.level = 3;
 
 var CryptoJS = require("crypto-js");
 
@@ -71,10 +75,58 @@ axios.interceptors.response.use((response) => {
     return response;
 });
 
+logger.token('date', () => {
+    const now = new Date();
+    return now.toISOString();
+});
+
+app.use(logger('[:date] :method :url :status :response-time ms - content length :res[content-length] - :from - :content-type - BODY :req-body'));
+
+logger.token("method", (req, res) => {
+    const method = req.method;
+    const color =
+        method === "POST"
+            ? "red"
+            : method === "GET"
+                ? "green"
+                : method === "OPTIONS"
+                    ? "yellow"
+                    : "bgRed"
+
+    return chalk[color](method.toString());
+});
+
+logger.token("status", (req, res) => {
+    const status = res.statusCode;
+    const color =
+        status >= 500
+            ? "red"
+            : status >= 400
+                ? "yellow"
+                : status >= 300
+                    ? "cyan"
+                    : status >= 200
+                        ? "green"
+                        : "bold";
+
+    return chalk[color](status.toString());
+});
+
+logger.token('req-body', (req) => chalk.grey(`${JSON.stringify(req.body, null, 2)}`));
+
+logger.token('from', function (req) {
+    if (req.headers['x-forwarded-for']) {
+        return chalk.magenta(`${req.headers['x-forwarded-for']}`)
+    } else {
+        return chalk.magenta(`${req.socket.remoteAddress}`)
+    }
+});
+logger.token('content-type', (req) => req.headers['content-type'] && chalk.green(`${req.headers['content-type']}`));
+
 // 1- Get Login | get __RequestVerificationToken from res
 const getLogin = async () => {
     console.log('1 - getLogin');
-    
+
     try {
         const config = {
             method: 'get',
@@ -95,7 +147,7 @@ const getLogin = async () => {
         return {
             value: '',
             error: true,
-            message: 'error: no res on getLogin'
+            message: 'Error: No response on getLogin'
         }
     } catch (e) {
         console.log(e, 'catch getLogin');
@@ -103,7 +155,7 @@ const getLogin = async () => {
             status: e.status,
             value: '',
             error: true,
-            message: 'error: catch getLogin'
+            message: 'Error: Catch getLogin' + ' | ' + e + (e?.response?.statusText ? (' | ' + e?.response?.statusText) : '')
         }
     }
 }
@@ -114,7 +166,7 @@ const postLogin = async (__RequestVerificationToken) => {
     if (!__RequestVerificationToken) return {
         value: '',
         error: true,
-        message: 'error: no __RequestVerificationToken postLogin'
+        message: 'Error: No __RequestVerificationToken postLogin'
     }
     const data = qs.stringify({
         CpfCnpj: process.env.GIJU_USER,
@@ -124,7 +176,7 @@ const postLogin = async (__RequestVerificationToken) => {
     if (!data) return {
         value: '',
         error: true,
-        message: 'error: no data postLogin'
+        message: 'Error: No data postLogin'
     }
 
     try {
@@ -166,7 +218,7 @@ const postLogin = async (__RequestVerificationToken) => {
         return {
             value: '',
             error: true,
-            message: 'error: no res on postLogin'
+            message: 'Error: No response on postLogin'
         }
     } catch (e) {
         console.log(e, 'catch postLogin')
@@ -174,7 +226,7 @@ const postLogin = async (__RequestVerificationToken) => {
             status: e.status,
             value: '',
             error: true,
-            message: 'error: catch postLogin'
+            message: 'Error: Catch postLogin' + ' | ' + e + (e?.response?.statusText ? (' | ' + e?.response?.statusText) : '')
         }
     }
 }
@@ -182,11 +234,11 @@ const postLogin = async (__RequestVerificationToken) => {
 // 3- Transaction | __RequestVerificationToken
 const transaction = async (__AuthorizationToken) => {
     console.log('3 - transaction');
-    
+
     if (!__AuthorizationToken) return {
         value: '',
         error: true,
-        message: 'error: no __AuthorizationToken transaction'
+        message: 'Error: No __AuthorizationToken transaction'
     }
     const data = qs.stringify({
         '__AuthorizationToken': __AuthorizationToken,
@@ -194,7 +246,7 @@ const transaction = async (__AuthorizationToken) => {
     if (!data) return {
         value: '',
         error: true,
-        message: 'error: no data transaction'
+        message: 'Error: No data transaction'
     }
 
     try {
@@ -225,6 +277,10 @@ const transaction = async (__AuthorizationToken) => {
 
         if (res && res.status == 200 && res.data && typeof res.data === 'string') {
             const $ = cheerio.load(res.data);
+            // console.log($('form[action="/apps/ecommerce/transacaolink/geralink"] input[name=__RequestVerificationToken]').val());
+            if (!$('form[action="/apps/ecommerce/transacaolink/geralink"] input[name=__RequestVerificationToken]').val()) {
+                throw new Error("No possible to get new __RequestVerificationToken on https://www1.tln.com.br/apps/ecommerce/transacaolink/index");
+            }
 
             return {
                 value: $('form[action="/apps/ecommerce/transacaolink/geralink"] input[name=__RequestVerificationToken]').val(),
@@ -235,7 +291,7 @@ const transaction = async (__AuthorizationToken) => {
         return {
             value: '',
             error: true,
-            message: 'error: no res on transaction'
+            message: 'Error: No response on transaction'
         }
     } catch (e) {
         console.log(e, 'catch transaction')
@@ -243,7 +299,7 @@ const transaction = async (__AuthorizationToken) => {
             status: e.status,
             value: '',
             error: true,
-            message: 'error: catch transaction'
+            message: 'Error: Catch transaction' + ' | ' + e + (e?.response?.statusText ? (' | ' + e?.response?.statusText) : '')
         }
     }
 }
@@ -251,7 +307,7 @@ const transaction = async (__AuthorizationToken) => {
 // 4- GeneraLink | https://www1.tln.com.br
 const generateLink = async (props) => {
     console.log('4 - generateLink');
-    
+
     const data = qs.stringify({
         __AuthorizationToken: props.__AuthorizationToken,
         operadora: props.operadora,
@@ -265,7 +321,7 @@ const generateLink = async (props) => {
     if (!data) return {
         value: '',
         error: true,
-        message: 'error: no data generateLink'
+        message: 'Error: No data generateLink'
     }
 
     try {
@@ -296,7 +352,10 @@ const generateLink = async (props) => {
         if (res && res.status == 200 && res.data && typeof res.data === 'string') {
             const $ = cheerio.load(res.data);
             // console.log(res.data);
-            
+            if (!$('p:contains("Link para Pagamento:") + p a').attr('href')) {
+                throw new Error("No possible to get link on https://www1.tln.com.br/apps/ecommerce/transacaolink/geralink");
+            }
+
             return {
                 value: $('p:contains("Link para Pagamento:") + p a').attr('href'),
                 error: false,
@@ -306,7 +365,7 @@ const generateLink = async (props) => {
         return {
             value: '',
             error: true,
-            message: 'error: no res on generateLink'
+            message: 'Error: No response on generateLink'
         }
     } catch (e) {
         console.log(e, 'catch generateLink')
@@ -314,7 +373,7 @@ const generateLink = async (props) => {
             status: e.status,
             value: '',
             error: true,
-            message: 'error: catch generateLink'
+            message: 'Error: Catch generateLink' + ' | ' + e + (e?.response?.statusText ? (' | ' + e?.response?.statusText) : '')
         }
     }
 }
@@ -322,11 +381,11 @@ const generateLink = async (props) => {
 // 5- payment | https://www1.tln.com.br/us/bla3bla4
 const payment = async (link) => {
     console.log('5 - payment');
-    
+
     if (!link) return {
         value: '',
         error: true,
-        message: 'error: no link payment'
+        message: 'Error: No link payment'
     }
 
     try {
@@ -355,6 +414,9 @@ const payment = async (link) => {
         const res = await axios.request(config);
         if (res && res.status == 200 && res.data && typeof res.data === 'string') {
             const $ = cheerio.load(res.data);
+            if (!$('[id="s_chaveSessao"]')?.val() || !$('[id="s_idSessaoPagamento"]')?.val() || !$('[name="token"]')?.val()) {
+                throw new Error(`Some wrong on ${link}`);
+            }
 
             return {
                 value: {
@@ -369,7 +431,7 @@ const payment = async (link) => {
         return {
             value: '',
             error: true,
-            message: 'error: no res on payment'
+            message: 'Error: No response on payment'
         }
     } catch (e) {
         console.log(e, 'catch generateLink')
@@ -377,7 +439,7 @@ const payment = async (link) => {
             status: e.status,
             value: '',
             error: true,
-            message: 'error: catch payment'
+            message: 'Error: Catch payment' + ' | ' + e + (e?.response?.statusText ? (' | ' + e?.response?.statusText) : '')
         }
     }
 }
@@ -385,11 +447,11 @@ const payment = async (link) => {
 // 6- tipoDeCartão | https://www1.tln.com.br/apps/ecommerce/transacaolink/obtemtipocartao
 const tipoDeCartao = async ({ operadora, numeroCartao, referer }) => {
     console.log('6 - tipoDeCartao');
-    
+
     if (!operadora || !numeroCartao) return {
         value: '',
         error: true,
-        message: 'error: no operadora or numeroCartao tipoDeCartao'
+        message: 'Error: No operadora or numeroCartao tipoDeCartao'
     }
 
     try {
@@ -423,7 +485,7 @@ const tipoDeCartao = async ({ operadora, numeroCartao, referer }) => {
         if (res && res.status == 200 && res.data) {
 
             return {
-                value: res.data[0].tipoCartao,
+                value: res?.data?.at(0)?.tipoCartao,
                 error: false,
                 message: ''
             };
@@ -431,7 +493,7 @@ const tipoDeCartao = async ({ operadora, numeroCartao, referer }) => {
         return {
             value: '',
             error: true,
-            message: 'error: no res on tipoDeCartao'
+            message: 'Error: No response on tipoDeCartao'
         }
     } catch (e) {
         console.log(e, 'catch tipoDeCartao')
@@ -439,7 +501,7 @@ const tipoDeCartao = async ({ operadora, numeroCartao, referer }) => {
             status: e.status,
             value: '',
             error: true,
-            message: 'error: catch tipoDeCartao'
+            message: 'Error: Catch tipoDeCartao' + ' | ' + e + (e?.response?.statusText ? (' | ' + e?.response?.statusText) : '')
         }
     }
 }
@@ -447,7 +509,7 @@ const tipoDeCartao = async ({ operadora, numeroCartao, referer }) => {
 // 7- sendPayment | https://www1.tln.com.br/apps/ecommerce/transacaolink/confirmatransacao
 const sendPayment = async (props) => {
     console.log('7 - sendPayment');
-    
+
     const data = qs.stringify({
         chaveSessao: props.chaveSessao,
         idSessaoPagamento: props.idSessaoPagamento,
@@ -463,7 +525,7 @@ const sendPayment = async (props) => {
     if (!data) return {
         value: '',
         error: true,
-        message: 'error: no data sendPayment'
+        message: 'Error: No data sendPayment'
     }
 
     try {
@@ -511,7 +573,7 @@ const sendPayment = async (props) => {
         return {
             value: '',
             error: true,
-            message: 'error: no res on sendPayment'
+            message: 'Error: No response on sendPayment https://www1.tln.com.br/apps/ecommerce/transacaolink/confirmatransacao'
         }
     } catch (e) {
         console.log(e, 'catch sendPayment')
@@ -519,7 +581,7 @@ const sendPayment = async (props) => {
             status: e.status,
             value: '',
             error: true,
-            message: 'error: catch sendPayment'
+            message: 'Error: Catch sendPayment' + ' | ' + e + (e?.response?.statusText ? (' | ' + e?.response?.statusText) : '')
         }
     }
 }
