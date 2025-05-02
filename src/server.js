@@ -279,7 +279,7 @@ const transaction = async (__AuthorizationToken) => {
             const $ = cheerio.load(res.data);
             // console.log($('form[action="/apps/ecommerce/transacaolink/geralink"] input[name=__RequestVerificationToken]').val());
             if (!$('form[action="/apps/ecommerce/transacaolink/geralink"] input[name=__RequestVerificationToken]').val()) {
-                throw new Error("No possible to get new __RequestVerificationToken on https://www1.tln.com.br/apps/ecommerce/transacaolink/index");
+                throw new Error("Cartão ou senha inválidos!");
             }
 
             return {
@@ -415,7 +415,7 @@ const payment = async (link) => {
         if (res && res.status == 200 && res.data && typeof res.data === 'string') {
             const $ = cheerio.load(res.data);
             if (!$('[id="s_chaveSessao"]')?.val() || !$('[id="s_idSessaoPagamento"]')?.val() || !$('[name="token"]')?.val()) {
-                throw new Error(`Some wrong on ${link}`);
+                throw new Error(`Some wrong on link: ${link}`);
             }
 
             return {
@@ -601,7 +601,18 @@ const runAll = async (props) => {
     if (res1.value && !res1.error) {
         __RequestVerificationToken = res1.value
     } else {
-        return res1
+        return {
+            ...res1, sended: {
+                __AuthorizationToken,
+                __RequestVerificationToken,
+                __RequestVerificationToken2,
+                link,
+                s_chaveSessao,
+                s_idSessaoPagamento,
+                token,
+                tipoCartao
+            }
+        }
     }
 
     // 2
@@ -609,7 +620,18 @@ const runAll = async (props) => {
     if (res2.value && !res2.error) {
         __AuthorizationToken = res2.value
     } else {
-        return res2
+        return {
+            ...res2, sended: {
+                __AuthorizationToken,
+                __RequestVerificationToken,
+                __RequestVerificationToken2,
+                link,
+                s_chaveSessao,
+                s_idSessaoPagamento,
+                token,
+                tipoCartao
+            }
+        }
     }
 
     // 3
@@ -617,7 +639,18 @@ const runAll = async (props) => {
     if (res3.value && !res3.error) {
         __RequestVerificationToken2 = res3.value
     } else {
-        return res3
+        return {
+            ...res3, sended: {
+                __AuthorizationToken,
+                __RequestVerificationToken,
+                __RequestVerificationToken2,
+                link,
+                s_chaveSessao,
+                s_idSessaoPagamento,
+                token,
+                tipoCartao
+            }
+        }
     }
 
     // 4
@@ -629,7 +662,18 @@ const runAll = async (props) => {
     if (res4.value && !res4.error) {
         link = res4.value
     } else {
-        return res4
+        return {
+            ...res4, sended: {
+                __AuthorizationToken,
+                __RequestVerificationToken,
+                __RequestVerificationToken2,
+                link,
+                s_chaveSessao,
+                s_idSessaoPagamento,
+                token,
+                tipoCartao
+            }
+        }
     }
 
     // 5
@@ -639,7 +683,18 @@ const runAll = async (props) => {
         s_idSessaoPagamento = res5.value.s_idSessaoPagamento
         token = res5.value.token
     } else {
-        return res5
+        return {
+            ...res5, sended: {
+                __AuthorizationToken,
+                __RequestVerificationToken,
+                __RequestVerificationToken2,
+                link,
+                s_chaveSessao,
+                s_idSessaoPagamento,
+                token,
+                tipoCartao
+            }
+        }
     }
 
     // 6
@@ -647,7 +702,18 @@ const runAll = async (props) => {
     if (!res6.error) {
         tipoCartao = res6.value
     } else {
-        return res6
+        return {
+            ...res6, sended: {
+                __AuthorizationToken,
+                __RequestVerificationToken,
+                __RequestVerificationToken2,
+                link,
+                s_chaveSessao,
+                s_idSessaoPagamento,
+                token,
+                tipoCartao
+            }
+        }
     }
 
     // 7
@@ -669,7 +735,18 @@ const runAll = async (props) => {
         }
         // indo7 = res7.value
     } else {
-        return res7
+        return {
+            ...res7, sended: {
+                __AuthorizationToken,
+                __RequestVerificationToken,
+                __RequestVerificationToken2,
+                link,
+                s_chaveSessao,
+                s_idSessaoPagamento,
+                token,
+                tipoCartao
+            }
+        }
     }
 
     // return {
