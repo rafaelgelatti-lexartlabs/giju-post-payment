@@ -482,7 +482,7 @@ const tipoDeCartao = async ({ operadora, numeroCartao, referer }) => {
         };
 
         const res = await axios.request(config);
-        if (res && res.status == 200 && res.data) {
+        if (res && res.status == 200 && res?.data.length > 0) {
 
             return {
                 value: res?.data?.at(0)?.tipoCartao,
@@ -611,7 +611,8 @@ const runAll = async (props) => {
                 s_idSessaoPagamento,
                 token,
                 tipoCartao
-            }
+            },
+            stepOfError: "Erro ao obter pagina de login"
         }
     }
 
@@ -630,7 +631,8 @@ const runAll = async (props) => {
                 s_idSessaoPagamento,
                 token,
                 tipoCartao
-            }
+            },
+            stepOfError: "Erro ao fazer login"
         }
     }
 
@@ -649,7 +651,8 @@ const runAll = async (props) => {
                 s_idSessaoPagamento,
                 token,
                 tipoCartao
-            }
+            },
+            stepOfError: "Erro ao enviar transação"
         }
     }
 
@@ -671,8 +674,12 @@ const runAll = async (props) => {
                 s_chaveSessao,
                 s_idSessaoPagamento,
                 token,
-                tipoCartao
-            }
+                tipoCartao,
+                operadora: props.operadora,
+                ValorTransacao: props.ValorTransacao,
+                condicao: props.condicao
+            },
+            stepOfError: "Erro ao gerar o link. Valor do pagamento, operadora ou condição invalidos!"
         }
     }
 
@@ -692,8 +699,9 @@ const runAll = async (props) => {
                 s_chaveSessao,
                 s_idSessaoPagamento,
                 token,
-                tipoCartao
-            }
+                tipoCartao,
+            },
+            stepOfError: "Erro ao abrir o link"
         }
     }
 
@@ -711,8 +719,11 @@ const runAll = async (props) => {
                 s_chaveSessao,
                 s_idSessaoPagamento,
                 token,
-                tipoCartao
-            }
+                tipoCartao,
+                operadora: props.operadora,
+                numeroCartao: props.card_number
+            },
+            stepOfError: "Erro ao verficar o tipo do cartão"
         }
     }
 
@@ -746,11 +757,15 @@ const runAll = async (props) => {
                 __RequestVerificationToken,
                 __RequestVerificationToken2,
                 link,
-                s_chaveSessao,
-                s_idSessaoPagamento,
-                token,
-                tipoCartao
-            }
+                chaveSessao: s_chaveSessao,
+                idSessaoPagamento: s_idSessaoPagamento,
+                cpfCnpj: props.cpfCnpj,
+                operadora: props.operadora,
+                token: token,
+                cartao: props.card_number,
+                tipoCartao,
+            },
+            stepOfError: "Erro ao confirmar transação"
         }
     }
 
