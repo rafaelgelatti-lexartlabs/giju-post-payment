@@ -731,7 +731,12 @@ const runAll = async (props) => {
     if (res7.value && !res7.error) {
         return {
             message: "success",
-            error: false
+            error: false,
+            sended: {
+                cpfCnpj: props.cpfCnpj,
+                cartao: props.card_number,
+                ValorTransacao: props.ValorTransacao
+            }
         }
         // indo7 = res7.value
     } else {
