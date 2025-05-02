@@ -703,9 +703,8 @@ app.post('/giju-automation', express.json(), async (req, res) => {
     // } = mockedData;
 
     if (!card_number || !ValorTransacao || !cpf) {
-        res.send({
+        return res.status(400).send({
             error: true,
-            status: 400,
             message: "Missing params /giju-automation"
         })
     }
