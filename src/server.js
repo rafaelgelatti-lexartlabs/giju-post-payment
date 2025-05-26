@@ -9,6 +9,7 @@ const bodyParser = require('body-parser')
 const url = require('url')
 const qs = require('qs')
 const app = express()
+const cors = require("cors");
 app.use(bodyParser.urlencoded({ extended: true }))
 const port = process.env.PORT
 const { CookieJar } = require('tough-cookie');
@@ -16,6 +17,12 @@ const { CookieJar } = require('tough-cookie');
 chalk.level = 3;
 
 var CryptoJS = require("crypto-js");
+
+app.use(cors({
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    origin: ["https://app.wm10.com.br"],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Custom-Header', 'format'],
+}));
 
 function Aes128(chaveSessao) {
     const config = {
