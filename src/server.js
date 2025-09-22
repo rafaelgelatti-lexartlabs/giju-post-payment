@@ -577,10 +577,17 @@ const sendPayment = async (props) => {
                 message: 'success'
             };
         }
+
+        const $ = cheerio.load(res.data);
+        const title = $("title").text().trim();
+        const h2Text = $(".panel-body h2").text().trim();
+        const returnMessage = `${title} | ${h2Text}`;
+
         return {
             value: '',
             error: true,
-            message: 'Error: No response on sendPayment https://www1.tln.com.br/apps/ecommerce/transacaolink/confirmatransacao'
+            // message: 'Error: No response on sendPayment https://www1.tln.com.br/apps/ecommerce/transacaolink/confirmatransacao'
+            message: returnMessage
         }
     } catch (e) {
         console.log(e, 'catch sendPayment')
@@ -619,7 +626,7 @@ const runAll = async (props) => {
                 token,
                 tipoCartao
             },
-            stepOfError: "Erro ao obter pagina de login"
+            stepOfError: "Erro no passo 1 - /autenticacao/Login"
         }
     }
 
@@ -639,7 +646,7 @@ const runAll = async (props) => {
                 token,
                 tipoCartao
             },
-            stepOfError: "Erro ao fazer login"
+            stepOfError: "Erro no passo 2 - autenticacao/login"
         }
     }
 
@@ -659,7 +666,7 @@ const runAll = async (props) => {
                 token,
                 tipoCartao
             },
-            stepOfError: "Erro ao enviar transação"
+            stepOfError: "Erro no passo 3 - /transacaolink/index"
         }
     }
 
@@ -686,7 +693,7 @@ const runAll = async (props) => {
                 ValorTransacao: props.ValorTransacao,
                 condicao: props.condicao
             },
-            stepOfError: "Erro ao gerar o link. Valor do pagamento, operadora ou condição invalidos!"
+            stepOfError: "Erro no passo 4 - /transacaolink/geralink"
         }
     }
 
@@ -708,7 +715,7 @@ const runAll = async (props) => {
                 token,
                 tipoCartao,
             },
-            stepOfError: "Erro ao abrir o link"
+            stepOfError: `Erro no passo 5 - Ao abrir o link gerado: ${link}`
         }
     }
 
@@ -730,7 +737,7 @@ const runAll = async (props) => {
                 operadora: props.operadora,
                 numeroCartao: props.card_number
             },
-            stepOfError: "Erro ao verficar o tipo do cartão"
+            stepOfError: "Erro no passo 6 - /transacaolink/obtemtipocartao"
         }
     }
 
@@ -772,7 +779,8 @@ const runAll = async (props) => {
                 cartao: props.card_number,
                 tipoCartao,
             },
-            stepOfError: "Erro ao confirmar transação"
+            // stepOfError: "Erro ao confirmar transação"
+            stepOfError: res7.message || "Erro no Passo 7 - /transacaolink/confirmatransacao"
         }
     }
 
